@@ -2,7 +2,7 @@
     "name": "rightrace",
     "displayName": "RightTrace",
     "description": "Right-click a trace file to open it in a Perfetto-based in-editor browser.",
-    "version": "1.1.0",
+    "version": "2.0.0",
     "publisher": "TinkerCode",
     "private": true,
     "repository": {
