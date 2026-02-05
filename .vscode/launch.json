@@ -5,12 +5,25 @@
             "name": "Run RightTrace Extension",
             "type": "extensionHost",
             "request": "launch",
-            "runtimeExecutable": "${execPath}",
             "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}"
+                "--extensionDevelopmentPath=${workspaceFolder}",
+                "${workspaceFolder}/test-workspace"
             ],
             "outFiles": [
                 "${workspaceFolder}/dist/**/*.js"
+            ],
+            "preLaunchTask": "npm: compile"
+        },
+        {
+            "name": "Extension Tests",
+            "type": "extensionHost",
+            "request": "launch",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}",
+                "--extensionTestsPath=${workspaceFolder}/dist/test/suite/index"
+            ],
+            "outFiles": [
+                "${workspaceFolder}/dist/test/**/*.js"
             ],
             "preLaunchTask": "npm: compile"
         }
