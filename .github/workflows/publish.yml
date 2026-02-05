@@ -42,5 +42,5 @@ jobs:
         if: ${{ env.OVSX_TOKEN != '' }}
         env:
           OVSX_TOKEN: ${{ env.OVSX_TOKEN }}
-        run: npx ovsx publish *.vsix
+        run: npx ovsx publish --pat "$OVSX_TOKEN" *.vsix
 
