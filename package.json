@@ -5,6 +5,10 @@
     "version": "1.0.0",
     "publisher": "TinkerCode",
     "private": true,
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/maawad/RightTrace.git"
+    },
     "engines": {
         "vscode": "^1.96.0",
         "cursor": "^1.0.0"
