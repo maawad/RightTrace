@@ -1,0 +1,85 @@
+{
+    "name": "rightrace",
+    "displayName": "RightTrace",
+    "description": "Right-click a trace file to open it in a Perfetto-based in-editor browser.",
+    "version": "0.0.1",
+    "publisher": "TinkerCode",
+    "private": true,
+    "engines": {
+        "vscode": "^1.96.0",
+        "cursor": "^1.0.0"
+    },
+    "icon": "resources/icon.svg",
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "onCommand:rightrace.openTrace"
+    ],
+    "main": "./dist/extension.js",
+    "contributes": {
+        "submenus": [
+            {
+                "id": "rightrace.traceTools",
+                "label": "RightTrace"
+            }
+        ],
+        "commands": [
+            {
+                "command": "rightrace.openTrace",
+                "title": "Open (Replace)",
+                "category": "RightTrace"
+            },
+            {
+                "command": "rightrace.openTraceInNewTab",
+                "title": "Open in New Tab",
+                "category": "RightTrace"
+            }
+        ],
+        "menus": {
+            "explorer/context": [
+                {
+                    "command": "-",
+                    "when": "isFileSystemResource && !explorerResourceIsFolder && resourceExtname =~ /\\.(pftrace|perfetto|trace|json)$/",
+                    "group": "zzz_5_sep"
+                },
+                {
+                    "submenu": "rightrace.traceTools",
+                    "when": "isFileSystemResource && !explorerResourceIsFolder && resourceExtname =~ /\\.(pftrace|perfetto|trace|json)$/",
+                    "group": "zzz_6_trace"
+                }
+            ],
+            "rightrace.traceTools": [
+                {
+                    "command": "rightrace.openTrace",
+                    "group": "1_open"
+                },
+                {
+                    "command": "rightrace.openTraceInNewTab",
+                    "group": "1_open"
+                }
+            ]
+        },
+        "configuration": {
+            "title": "RightTrace",
+            "properties": {
+                "rightrace.perfettoUrl": {
+                    "type": "string",
+                    "default": "https://ui.perfetto.dev/",
+                    "description": "Base URL for the Perfetto UI to load inside the in-editor browser."
+                }
+            }
+        }
+    },
+    "scripts": {
+        "compile": "tsc -p .",
+        "watch": "tsc -p . -w",
+        "package": "vsce package"
+    },
+    "devDependencies": {
+        "@types/node": "^20.11.30",
+        "@types/vscode": "^1.96.0",
+        "typescript": "^5.7.2",
+        "vsce": "^2.15.0"
+    }
+}

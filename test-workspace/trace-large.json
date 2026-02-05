@@ -1,0 +1,33 @@
+{
+    "traceEvents": [
+        {
+            "name": "startup",
+            "cat": "app",
+            "ph": "B",
+            "ts": 0,
+            "pid": 1,
+            "tid": 1
+        },
+        {
+            "name": "startup",
+            "cat": "app",
+            "ph": "E",
+            "ts": 500000,
+            "pid": 1,
+            "tid": 1
+        },
+        {
+            "name": "render",
+            "cat": "ui",
+            "ph": "X",
+            "ts": 100000,
+            "dur": 300000,
+            "pid": 1,
+            "tid": 2,
+            "args": {
+                "frame": 1
+            }
+        }
+    ],
+    "displayTimeUnit": "ns"
+}

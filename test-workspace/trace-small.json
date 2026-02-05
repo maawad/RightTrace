@@ -1,0 +1,17 @@
+{
+    "traceEvents": [
+        {
+            "name": "example_event",
+            "cat": "test",
+            "ph": "X",
+            "ts": 0,
+            "dur": 1000,
+            "pid": 1,
+            "tid": 1,
+            "args": {
+                "info": "Small synthetic trace event for testing RightTrace."
+            }
+        }
+    ],
+    "displayTimeUnit": "ns"
+}
