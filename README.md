@@ -1,10 +1,10 @@
 <h1 align="center">🧭 RightTrace 🧭</h1>
 
 <p align="center">
-  <a href="https://github.com/maawad/rightrace/actions/workflows/ci.yml">
-    <img src="https://github.com/maawad/rightrace/actions/workflows/ci.yml/badge.svg" alt="CI Status">
+  <a href="https://github.com/maawad/RightTrace/actions/workflows/ci.yml">
+    <img src="https://github.com/maawad/RightTrace/actions/workflows/ci.yml/badge.svg" alt="CI Status">
   </a>
-  <a href="https://github.com/maawad/rightrace/actions/workflows/publish.yml">
+  <a href="https://github.com/maawad/RightTrace/actions/workflows/publish.yml">
     <img src="https://img.shields.io/badge/Download-Latest%20VSIX-blue?style=flat-square" alt="Download VSIX">
   </a>
   <a href="https://open-vsx.org/extension/TinkerCode/rightrace">
@@ -30,9 +30,9 @@
 
 ### Download Latest Version
 
-[![Download VSIX](https://img.shields.io/badge/Download-Latest%20VSIX-blue?style=for-the-badge)](https://github.com/maawad/rightrace/actions/workflows/publish.yml)
+[![Download VSIX](https://img.shields.io/badge/Download-Latest%20VSIX-blue?style=for-the-badge)](https://github.com/maawad/RightTrace/actions/workflows/publish.yml)
 
-1. Go to the [Actions](https://github.com/maawad/rightrace/actions) tab.
+1. Go to the [Actions](https://github.com/maawad/RightTrace/actions) tab.
 2. Click on the latest successful **Publish** workflow run.
 3. Scroll to **Artifacts** and download the `rightrace-vsix` artifact.
 4. Extract the `.vsix` file from the zip.
