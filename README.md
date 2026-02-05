@@ -79,6 +79,10 @@ npm run compile
 Press `F5` in VS Code / Cursor and use the **Run RightTrace Extension** launch config.
 The included `test-workspace/` folder contains small sample traces for debugging.
 
+## 🙏 Credits
+
+Inspired by [vscode-perfetto-trace](https://github.com/drain99/vscode-perfetto-trace) by [@drain99](https://github.com/drain99). RightTrace uses a similar postMessage-based approach for loading traces into the Perfetto UI.
+
 ## 📝 License
 
 MIT License - see [LICENSE](LICENSE) for details.

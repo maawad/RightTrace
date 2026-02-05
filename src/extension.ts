@@ -1,15 +1,14 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import * as http from "http";
-import * as fs from "fs";
-import type { AddressInfo } from "net";
 
-// Shared server + routing table so we can serve multiple traces at once
-// from the fixed CSP-allowed port 9001.
-let sharedServer: http.Server | undefined;
-let sharedServerOrigin: string | undefined;
-const traceFiles = new Map<string, string>(); // basename -> absolute path
+// Track open panels
 let primaryPanel: vscode.WebviewPanel | undefined;
+const openPanels = new Set<vscode.WebviewPanel>();
+
+// Message commands for communication with webview
+const VSCODE_UI_READY_COMMAND = "vscode-ui-ready";
+const VSCODE_LOAD_TRACE_COMMAND = "vscode-load-trace";
+const VSCODE_TRACE_LOADED_COMMAND = "vscode-trace-loaded";
 
 export function activate(context: vscode.ExtensionContext) {
     const openCore = async (
@@ -38,80 +37,66 @@ export function activate(context: vscode.ExtensionContext) {
             perfettoBase || "https://ui.perfetto.dev/"
         ).origin;
 
-        // Register this trace file and ensure the shared HTTP server is
-        // running so we can point Perfetto's ?url= at it. This mirrors
-        // tools/open_trace_in_ui.py but allows multiple traces at once.
-        let traceUrl: string;
+        // Read trace file into memory
+        let traceData: Uint8Array;
         try {
-            traceUrl = await registerTraceAndEnsureServer(
-                uri.fsPath,
-                perfettoOrigin
-            );
+            traceData = await vscode.workspace.fs.readFile(uri);
         } catch (err) {
             void vscode.window.showErrorMessage(
-                `RightTrace: Failed to start local server: ${String(err)}`
+                `RightTrace: Failed to read trace file: ${String(err)}`
             );
             return;
         }
 
-        // In remote scenarios, use asExternalUri so VS Code sets up a port
-        // forward / tunnel and returns a client-reachable URL for the
-        // server that is actually running on the remote extension host.
-        let externalTraceUrl = traceUrl;
-        try {
-            const extUri = await vscode.env.asExternalUri(
-                vscode.Uri.parse(traceUrl)
-            );
-            externalTraceUrl = extUri.toString(true);
-        } catch {
-            // Fall back to the raw traceUrl if asExternalUri fails; this
-            // still works for the local case.
-        }
-
-        // Ensure there's exactly one trailing slash before appending hash/params.
-        const normalizedBase = perfettoBase.replace(/\/+$/, "") + "/";
-        // Point Perfetto at our (possibly tunneled) trace URL, matching
-        // open_trace_in_ui.py semantics.
-        const perfettoWithTrace = `${normalizedBase}#!/?url=${encodeURIComponent(
-            externalTraceUrl
-        )}&referrer=open_trace_in_ui`;
+        const fileName = path.basename(uri.fsPath);
+        const title = fileName;
 
         const panel = vscode.window.createWebviewPanel(
             "rightrace.perfetto",
-            `RightTrace: ${path.basename(uri.fsPath)}`,
+            `RightTrace: ${fileName}`,
             vscode.ViewColumn.Beside,
             {
-                enableScripts: true
+                enableScripts: true,
+                localResourceRoots: []
             }
         );
 
-        const safeUrl = escapeHtml(perfettoWithTrace);
+        // Track panel and clean up when all panels are closed
+        openPanels.add(panel);
+        panel.onDidDispose(() => {
+            openPanels.delete(panel);
+            if (primaryPanel === panel) {
+                primaryPanel = undefined;
+            }
+        });
 
-        panel.webview.html = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>RightTrace</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      overflow: hidden;
-      background: #1e1e1e;
-    }
-    iframe {
-      border: 0;
-      width: 100%;
-      height: 100%;
-    }
-  </style>
-</head>
-<body>
-  <iframe src="${safeUrl}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
-            </body>
-            </html>`;
+        // Handle messages from webview
+        panel.webview.onDidReceiveMessage((message: { command: string }) => {
+            switch (message.command) {
+                case VSCODE_UI_READY_COMMAND:
+                    // Perfetto UI is ready, send trace data
+                    panel.webview.postMessage({
+                        command: VSCODE_LOAD_TRACE_COMMAND,
+                        payload: {
+                            buffer: traceData.buffer,
+                            title: title,
+                            fileName: fileName,
+                            keepApiOpen: true,
+                        }
+                    });
+                    return;
+                case VSCODE_TRACE_LOADED_COMMAND:
+                    // Trace loaded successfully
+                    console.log(`RightTrace: Trace loaded: ${fileName}`);
+                    return;
+                default:
+                    console.error("RightTrace: Unexpected message:", message);
+                    return;
+            }
+        });
+
+        // Set webview HTML with Perfetto iframe and message handling
+        panel.webview.html = getWebviewHTML(panel.webview, perfettoOrigin, perfettoBase);
 
         if (mode === "replace") {
             // Close any previous primary panel so "Open (Replace)" always reuses
@@ -150,93 +135,86 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-    if (sharedServer) {
-        sharedServer.close();
-        sharedServer = undefined;
-        sharedServerOrigin = undefined;
-        traceFiles.clear();
-        primaryPanel = undefined;
-    }
+    // Panels will be disposed automatically by VS Code
+    primaryPanel = undefined;
+    openPanels.clear();
 }
 
-function escapeHtml(value: string): string {
-    return value
-        .replace(/&/g, "&amp;")
-        .replace(/"/g, "&quot;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-}
+function getWebviewHTML(webview: vscode.Webview, perfettoOrigin: string, perfettoBase: string): string {
+    const perfettoFrameId = "perfetto-ui-iframe";
+    const normalizedBase = perfettoBase.replace(/\/+$/, "") + "/";
 
-async function registerTraceAndEnsureServer(
-    tracePath: string,
-    perfettoOrigin: string
-): Promise<string> {
-    const filename = path.basename(tracePath);
-    traceFiles.set(filename, tracePath);
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none';
+            script-src ${webview.cspSource} ${perfettoOrigin} 'unsafe-inline';
+            style-src ${webview.cspSource} ${perfettoOrigin} 'unsafe-inline';
+            frame-src ${perfettoOrigin}">
+    <title>RightTrace - Perfetto UI</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #1e1e1e;
+            color: #ffffff;
+        }
+        iframe {
+            border: none;
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <script type="text/javascript">
+        (function() {
+            document.addEventListener("DOMContentLoaded", function() {
+                const vscode = acquireVsCodeApi();
+                const ui = document.getElementById("${perfettoFrameId}");
 
-    // If there's already a server with the same origin, reuse it.
-    if (sharedServer && sharedServerOrigin === perfettoOrigin) {
-        return `http://127.0.0.1:9001/${encodeURIComponent(filename)}`;
-    }
+                let pingInterval = null;
+                let uiReady = false;
+                let traceLoaded = false;
 
-    // If there's a server with a different origin, restart it to match.
-    if (sharedServer) {
-        sharedServer.close();
-        sharedServer = undefined;
-        sharedServerOrigin = undefined;
-    }
+                const sendPing = () => {
+                    ui.contentWindow.postMessage("PING", "${perfettoOrigin}");
+                };
 
-    return await new Promise((resolve, reject) => {
-        const server = http.createServer((req, res) => {
-            if (!req.url || !req.method) {
-                res.statusCode = 400;
-                res.end("Bad request");
-                return;
-            }
-
-            const url = new URL(req.url, "http://127.0.0.1:9001");
-            const name = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
-            const target = traceFiles.get(name);
-
-            if (req.method === "GET" && target) {
-                fs.readFile(target, (err, data) => {
-                    if (err) {
-                        res.statusCode = 500;
-                        res.setHeader("Content-Type", "text/plain; charset=utf-8");
-                        res.end(`Failed to read trace: ${String(err)}`);
-                        return;
+                // Handle messages from Perfetto UI and extension
+                const messageHandler = event => {
+                    if (event.data === "PONG" && event.origin === "${perfettoOrigin}") {
+                        if (!uiReady) {
+                            uiReady = true;
+                            vscode.postMessage({ command: "${VSCODE_UI_READY_COMMAND}" });
+                            console.log("RightTrace: Perfetto UI ready");
+                        } else if (traceLoaded) {
+                            console.log("RightTrace: Trace loaded");
+                            clearInterval(pingInterval);
+                            pingInterval = null;
+                            vscode.postMessage({ command: "${VSCODE_TRACE_LOADED_COMMAND}" });
+                        }
+                    } else if (event.data && event.data.command === "${VSCODE_LOAD_TRACE_COMMAND}") {
+                        if (!traceLoaded) {
+                            traceLoaded = true;
+                            ui.contentWindow.postMessage({ perfetto: event.data.payload }, "${perfettoOrigin}");
+                            console.log("RightTrace: Sending trace data to Perfetto");
+                        }
                     }
-                    res.statusCode = 200;
-                    res.setHeader("Content-Type", "application/json; charset=utf-8");
-                    // Match tools/open_trace_in_ui.py: allow only the Perfetto origin.
-                    res.setHeader("Access-Control-Allow-Origin", perfettoOrigin);
-                    res.end(data);
-                });
-            } else {
-                res.statusCode = 404;
-                res.setHeader("Content-Type", "text/plain; charset=utf-8");
-                res.end("Not found");
-            }
-        });
+                };
 
-        server.on("error", (err) => {
-            reject(err);
-        });
+                window.addEventListener('message', messageHandler);
 
-        const PORT = 9001;
-        server.listen(PORT, "127.0.0.1", () => {
-            const address = server.address() as AddressInfo | null;
-            if (!address || typeof address.port !== "number") {
-                server.close();
-                reject(new Error("Failed to get server port"));
-                return;
-            }
-            sharedServer = server;
-            sharedServerOrigin = perfettoOrigin;
-            const url = `http://127.0.0.1:${address.port}/${encodeURIComponent(
-                filename
-            )}`;
-            resolve(url);
-        });
-    });
+                // Start pinging Perfetto UI to detect when it's ready
+                pingInterval = setInterval(() => sendPing(), 500);
+            });
+        }())
+    </script>
+    <iframe id="${perfettoFrameId}" src="${normalizedBase}"></iframe>
+</body>
+</html>`;
 }

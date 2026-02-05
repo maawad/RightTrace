@@ -31,7 +31,7 @@
         "commands": [
             {
                 "command": "rightrace.openTrace",
-                "title": "Open (Replace)",
+                "title": "Open",
                 "category": "RightTrace"
             },
             {
