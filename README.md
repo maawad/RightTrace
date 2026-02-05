@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <img src="resources/icon.svg" alt="RightTrace Icon" width="128" height="128">
+  <img src="resources/icon.png" alt="RightTrace Icon" width="128" height="128">
 </p>
 
 <p align="center">
