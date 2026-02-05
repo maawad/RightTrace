@@ -54,11 +54,26 @@ export function activate(context: vscode.ExtensionContext) {
             return;
         }
 
+        // In remote scenarios, use asExternalUri so VS Code sets up a port
+        // forward / tunnel and returns a client-reachable URL for the
+        // server that is actually running on the remote extension host.
+        let externalTraceUrl = traceUrl;
+        try {
+            const extUri = await vscode.env.asExternalUri(
+                vscode.Uri.parse(traceUrl)
+            );
+            externalTraceUrl = extUri.toString(true);
+        } catch {
+            // Fall back to the raw traceUrl if asExternalUri fails; this
+            // still works for the local case.
+        }
+
         // Ensure there's exactly one trailing slash before appending hash/params.
         const normalizedBase = perfettoBase.replace(/\/+$/, "") + "/";
-        // Point Perfetto at our local trace URL, matching open_trace_in_ui.py.
+        // Point Perfetto at our (possibly tunneled) trace URL, matching
+        // open_trace_in_ui.py semantics.
         const perfettoWithTrace = `${normalizedBase}#!/?url=${encodeURIComponent(
-            traceUrl
+            externalTraceUrl
         )}&referrer=open_trace_in_ui`;
 
         const panel = vscode.window.createWebviewPanel(
